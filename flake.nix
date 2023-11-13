@@ -71,12 +71,32 @@
                 };
                 installPhase = "mkdir -p $out; mv * $out;";
               };
+
+          fitnessMonad = pkgs.stdenv.mkDerivation {
+            pname = "FitnessMonad";
+            version = "0.1.0";
+            src = ./.;
+            nativeBuildInputs = [ pkgs.makeWrapper ];
+            installPhase =
+              ''
+              mkdir -p $out
+
+              makeWrapper ${server}/bin/FitnessMonad $out/bin/FitnessMonad \
+                --set FITNESS_MONAD_HTML_DIR $out/usr/share/FitnessMonad/www/
+
+              mkdir -p $out/usr/share/FitnessMonad/www/
+
+              cp -r ${site}/* $out/usr/share/FitnessMonad/www/
+              '';
+          };
       in
         {
           packages = {
             ${serverName} = server;
             ${site.name} = site;
             patternflyV5 = patternflyV5;
+            fitnessMonad = fitnessMonad;
+            default = fitnessMonad;
           };
 
           devShell = haskellPackages.shellFor {

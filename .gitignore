@@ -2,3 +2,4 @@ result
 .direnv
 .envrc
 .psc*
+client_session_key*
