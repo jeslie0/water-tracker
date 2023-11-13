@@ -1,12 +1,23 @@
 ((nil
-  . ((compile-command . "cmake -B build; cd build; make -j4")
+  . ((compile-command
+      . "cmake -B build; cd build; make -j4")
 
      (eglot-workspace-configuration
       . (:purescript (:outputDirectory "./src/site/output")))))
 
  (auto-mode-alist
-  . (("\\.clangd\\'" . yaml-ts-mode)
-     ("\\.clang-format\\'" . python-ts-mode)))
+  . (("\\.lock\\'"
+      . yaml-ts-mode)))
 
- (c++-ts-mode
-  . ((c-ts-mode-indent-offset . 4))))
+ (purescript-mode
+  . ((eval
+      . (eglot-ensure))))
+
+ (haskell-mode
+  . ((eval
+      . (eglot-ensure))))
+
+ (nix-mode
+  . ((eval
+      . (eglot-ensure))))
+ )

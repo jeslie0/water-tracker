@@ -4,7 +4,7 @@ package:
     - effect
     - halogen
     - prelude
-  name: fitness-monad
+  name: fitness-monad-site
 workspace:
   extra_packages: {}
   package_set:

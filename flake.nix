@@ -49,11 +49,27 @@
               buildPhase = "spago bundle --outfile public/main.min.js";
               installPhase = "mkdir $out; cp public/* $out";
             };
+
+          patternflyV5 =
+            let
+              version =
+                "5.1.0";
+            in
+              pkgs.stdenvNoCC.mkDerivation {
+                pname = "patternfly";
+                version = version;
+                src = builtins.fetchTarball {
+                  url = "https://registry.npmjs.org/@patternfly/patternfly/-/patternfly-${version}.tgz";
+                  sha256 = "sha256:1cdcd9z263wjvh9jadrry8b4zndc5m1vkxb4hz04xhj69fz9dyli";
+                };
+                installPhase = "mkdir -p $out; mv * $out;";
+              };
       in
         {
           packages = {
             ${serverName} = server;
             ${site.name} = site;
+            patternflyV5 = patternflyV5;
           };
 
           devShell = haskellPackages.shellFor {
