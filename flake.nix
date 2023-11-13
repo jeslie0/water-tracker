@@ -41,10 +41,19 @@
 
           server =
             haskellPackages.callCabal2nix serverName ./src/server {};
+
+          site =
+            pkgs.mkSpagoDerivation {
+              src = ./src/site;
+              nativeBuildInputs = [ pkgs.esbuild ];
+              buildPhase = "spago bundle --outfile public/main.min.js";
+              installPhase = "mkdir $out; cp public/* $out";
+            };
       in
         {
           packages = {
             ${serverName} = server;
+            ${site.name} = site;
           };
 
           devShell = haskellPackages.shellFor {
@@ -56,6 +65,7 @@
                 cabal-install
                 pkgs.purs-unstable
                 pkgs.spago-unstable
+                pkgs.purescript-language-server-unstable
                 pkgs.esbuild
                 pkgs.purs-backend-es
                 pkgs.watchexec

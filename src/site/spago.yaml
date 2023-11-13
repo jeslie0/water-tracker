@@ -2,11 +2,9 @@ package:
   dependencies:
     - console
     - effect
+    - halogen
     - prelude
   name: fitness-monad
-  test:
-    dependencies: []
-    main: Test.Main
 workspace:
   extra_packages: {}
   package_set:
