@@ -46,8 +46,15 @@
             pkgs.mkSpagoDerivation {
               src = ./src/site;
               nativeBuildInputs = [ pkgs.esbuild ];
-              buildPhase = "spago bundle --outfile public/main.min.js";
-              installPhase = "mkdir $out; cp public/* $out";
+              buildPhase =
+                ''
+                spago bundle --outfile public/js/main.min.js;
+                cp -r ${patternflyV5} public/css/patternfly;
+                '';
+              installPhase =
+                ''
+                mkdir $out; cp -r public/* $out
+                '';
             };
 
           patternflyV5 =
