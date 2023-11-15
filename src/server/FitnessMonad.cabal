@@ -78,3 +78,12 @@ executable FitnessMonad
 
     -- Base language which the package is written in.
     default-language: GHC2021
+
+executable FFI
+    import:  warnings
+    main-is: SimpleFFI.hs
+    build-depends: base
+    hs-source-dirs: app
+    default-language: GHC2021
+    c-sources: app/SimpleFFI.c
+    ghc-options: -main-is SimpleFFI.hs
