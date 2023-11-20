@@ -11,6 +11,8 @@ import HelloSub
 import System.Environment qualified as Env
 import Yesod
 import Yesod.Static
+import Yesod.WebSockets
+import Network.HTTP.Types.Status
 
 data HelloWorld = HelloWorld
   { visitorCount :: CC.MVar Int,
@@ -26,6 +28,7 @@ mkYesod
   "HelloWorld"
   [parseRoutes|
 / HomeR GET
+/socket WebSocketR GET
 /subsite SubsiteR HelloSub getHelloSub
 /static StaticR Static getStatic
 |]
@@ -39,8 +42,23 @@ getHomeR = do
   val <- liftIO $ CC.readMVar visitorCount
   defaultLayout [whamlet|Hello, test! #{val}|]
 
--- getHomeR = do
---   liftIO $ static ""
+getWebSocketR :: HandlerFor HelloWorld Html
+getWebSocketR = do
+  webSockets socketT
+  sendResponseStatus ok200 ("Test" :: T.Text)
+
+
+ 
+
+socketT :: WebSocketsT Handler ()
+socketT = do
+  sendTextData ("Wooo!" :: T.Text)
+  name :: T.Text <- receiveData
+  sendTextData $ "welcome, " <> name
+  socketT
+
+
+
 
 main :: IO ()
 main = do

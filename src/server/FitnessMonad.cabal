@@ -68,10 +68,12 @@ executable FitnessMonad
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base ^>=4.17.2.0,
-                      text,
-                      yesod,
-                      yesod-static
+    build-depends:    base ^>= 4.17.2.0,
+                      http-types ^>= 0.12.3,
+                      text ^>= 2.0.2,
+                      yesod ^>= 1.6.2.1,
+                      yesod-static ^>= 1.6.1.0,
+                      yesod-websockets ^>= 0.3.0.3
 
     -- Directories containing source files.
     hs-source-dirs:   app
@@ -79,11 +81,5 @@ executable FitnessMonad
     -- Base language which the package is written in.
     default-language: GHC2021
 
-executable FFI
-    import:  warnings
-    main-is: SimpleFFI.hs
-    build-depends: base
-    hs-source-dirs: app
-    default-language: GHC2021
+    -- C files for FFI
     c-sources: app/SimpleFFI.c
-    ghc-options: -main-is SimpleFFI.hs
