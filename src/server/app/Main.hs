@@ -28,7 +28,7 @@ data HelloWorld = HelloWorld
 mkYesod
   "HelloWorld"
   [parseRoutesNoCheck|
-/home HomeR GET
+/counter CounterR GET
 /socket WebSocketR GET
 /subsite SubsiteR HelloSub getHelloSub
 / StaticR Static getStatic
@@ -39,12 +39,12 @@ mkYesod
 instance Yesod HelloWorld
 
 
-getHomeR :: HandlerFor HelloWorld Html
-getHomeR = do
+getCounterR :: HandlerFor HelloWorld Html
+getCounterR = do
   HelloWorld {..} <- getYesod
   liftIO . CC.modifyMVar_ visitorCount $ \n -> return $ n + 1
   val <- liftIO $ CC.readMVar visitorCount
-  defaultLayout [whamlet|Hello, test! #{val}|]
+  defaultLayout [whamlet|Number of visitors: #{val}|]
 
 
 getWebSocketR :: HandlerFor HelloWorld Html
@@ -55,9 +55,8 @@ getWebSocketR = do
 
 socketT :: WebSocketsT Handler ()
 socketT = do
-  sendTextData ("Wooo!" :: T.Text)
-  name :: T.Text <- receiveData
-  sendTextData $ "welcome, " <> name
+  echo :: T.Text <- receiveData
+  sendTextData echo
   socketT
 
 

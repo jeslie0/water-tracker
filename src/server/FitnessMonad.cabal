@@ -84,3 +84,5 @@ executable FitnessMonad
 
     -- C files for FFI
     c-sources: app/SimpleFFI.c
+
+    ghc-options: -O2 -threaded
