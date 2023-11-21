@@ -13,6 +13,7 @@ import Yesod
 import Yesod.Static
 import Yesod.WebSockets
 import Network.HTTP.Types.Status
+import WaiAppStatic.Types
 
 data HelloWorld = HelloWorld
   { visitorCount :: CC.MVar Int,
@@ -26,14 +27,17 @@ data HelloWorld = HelloWorld
 -- which is the lowercase method name, followed by the route name.
 mkYesod
   "HelloWorld"
-  [parseRoutes|
-/ HomeR GET
+  [parseRoutesNoCheck|
+/home HomeR GET
 /socket WebSocketR GET
 /subsite SubsiteR HelloSub getHelloSub
-/static StaticR Static getStatic
+/ StaticR Static getStatic
 |]
 
+
+
 instance Yesod HelloWorld
+
 
 getHomeR :: HandlerFor HelloWorld Html
 getHomeR = do
@@ -42,13 +46,12 @@ getHomeR = do
   val <- liftIO $ CC.readMVar visitorCount
   defaultLayout [whamlet|Hello, test! #{val}|]
 
+
 getWebSocketR :: HandlerFor HelloWorld Html
 getWebSocketR = do
   webSockets socketT
   sendResponseStatus ok200 ("Test" :: T.Text)
 
-
- 
 
 socketT :: WebSocketsT Handler ()
 socketT = do
@@ -58,14 +61,16 @@ socketT = do
   socketT
 
 
-
-
 main :: IO ()
 main = do
   htmlDir <- Maybe.fromMaybe "../../src/site/public" <$> Env.lookupEnv "FITNESS_MONAD_HTML_DIR"
   putStrLn $ "Yesod serving static files from \"" <> htmlDir <> "\"."
 
-  Static settings <- static htmlDir
+  Static settings <- staticDevel htmlDir
+  let staticSettings =
+        settings { ssRedirectToIndex = False
+                 , ssIndices = [unsafeToPiece "index.html"]
+                 }
   mvar <- CC.newMVar 0
 
   warp
@@ -73,5 +78,5 @@ main = do
     HelloWorld
       { visitorCount = mvar,
         getHelloSub = HelloSub,
-        getStatic = Static settings
+        getStatic = Static staticSettings
       }
