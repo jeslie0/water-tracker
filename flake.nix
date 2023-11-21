@@ -45,15 +45,19 @@
           site =
             pkgs.mkSpagoDerivation {
               src = ./src/site;
-              nativeBuildInputs = [ pkgs.esbuild ];
+              nativeBuildInputs = [ pkgs.esbuild pkgs.purs-backend-es pkgs.nodePackages.uglify-js ];
+              patches = [./patches/spago-purs-backend-es.patch];
               buildPhase =
                 ''
-                spago bundle --outfile public/js/main.min.js;
+                spago build && purs-backend-es bundle-app --no-build --minify --int-tags --to=main.js;
+                uglifyjs main.js --compress 'pure_getters,keep_fargs=false,unsafe_comps,unsafe' | uglifyjs --mangle --output public/js/main.min.js
                 cp -r ${patternflyV5} public/css/patternfly;
                 '';
               installPhase =
                 ''
-                mkdir $out; cp -r public/* $out
+                mkdir $out;
+                cp -r public/* $out;
+                cp spago.yaml $out
                 '';
             };
 

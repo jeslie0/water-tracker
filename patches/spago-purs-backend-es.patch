@@ -1,0 +1,15 @@
+diff --git a/spago.yaml b/spago.yaml
+index e38fb81..a3779a6 100644
+--- a/spago.yaml
++++ b/spago.yaml
+@@ -6,6 +6,10 @@ package:
+     - prelude
+   name: fitness-monad-site
+ workspace:
++  backend:
++    cmd: "purs-backend-es"
++    args:
++      - "build"
+   extra_packages: {}
+   package_set:
+     registry: 44.2.1
