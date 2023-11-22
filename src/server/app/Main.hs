@@ -27,11 +27,11 @@ data HelloWorld = HelloWorld
 -- which is the lowercase method name, followed by the route name.
 mkYesod
   "HelloWorld"
-  [parseRoutesNoCheck|
+  [parseRoutes|
 /counter CounterR GET
 /socket WebSocketR GET
 /subsite SubsiteR HelloSub getHelloSub
-/ StaticR Static getStatic
+!/ StaticR Static getStatic
 |]
 
 
@@ -44,7 +44,11 @@ getCounterR = do
   HelloWorld {..} <- getYesod
   liftIO . CC.modifyMVar_ visitorCount $ \n -> return $ n + 1
   val <- liftIO $ CC.readMVar visitorCount
-  defaultLayout [whamlet|Number of visitors: #{val}|]
+  defaultLayout $ do
+    setTitle "Page Counter"
+    addStylesheet $ StaticR $ StaticRoute ["css", "patternfly", "patternfly.min.css"] []
+    toWidget
+      [hamlet|Number of visitors: #{val}|]
 
 
 getWebSocketR :: HandlerFor HelloWorld Html
