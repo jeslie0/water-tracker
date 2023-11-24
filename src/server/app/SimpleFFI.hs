@@ -3,7 +3,7 @@
 module SimpleFFI where
 
 import Foreign ()
-import Foreign.C.Types ( CDouble(..) )
+import Foreign.C.Types
 
 foreign import capi unsafe "SimpleFFI.h printlol" c_print :: IO ()
 

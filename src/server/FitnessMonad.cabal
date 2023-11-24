@@ -71,6 +71,7 @@ executable FitnessMonad
     build-depends:    base ^>= 4.17.2.0,
                       http-types ^>= 0.12.3,
                       text ^>= 2.0.2,
+                      unix >= 2.7.3,
                       wai-app-static >= 3.1.8,
                       yesod ^>= 1.6.2.1,
                       yesod-static ^>= 1.6.1.0,
@@ -83,6 +84,14 @@ executable FitnessMonad
     default-language: GHC2021
 
     -- C files for FFI
-    c-sources: app/SimpleFFI.c
+    c-sources: cbits/SimpleFFI.c
 
     ghc-options: -O2 -threaded
+
+    cxx-options: -std=c++20 -Wall
+
+    cxx-sources: cbits/arith_capi.cpp cbits/arith.cpp
+
+    include-dirs: cbits
+
+    extra-libraries: stdc++
