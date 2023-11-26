@@ -1,0 +1,7 @@
+TODOs
+* DONE FileHeader
+* WAITING DefinitionRecord
+Still need to do
+- FIT Base types?
+- Developer Data ID Messages
+* Data Message
