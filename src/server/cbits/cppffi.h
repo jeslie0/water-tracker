@@ -6,3 +6,5 @@
 #endif
 
 MY_EXTERN int baz(int a);
+
+MY_EXTERN void cpp_print();

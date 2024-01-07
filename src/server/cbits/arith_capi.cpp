@@ -13,3 +13,12 @@ MY_EXTERN int arith_sub(arith *p, int x, int y) { return p->sub(x, y); }
 MY_EXTERN int arith_mult(arith *p, int x, int y) { return p->mult(x, y); }
 
 MY_EXTERN int arith_div(arith *p, int x, int y) { return p->div(x, y); }
+
+MY_EXTERN int fun_ptr_test(int (*fun)(int x), int x)
+{
+    if (fun)
+        return (*fun)(x);
+
+    std::cout << "Function pointer is null\n";
+    return -1;
+}

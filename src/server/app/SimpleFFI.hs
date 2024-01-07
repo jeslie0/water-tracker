@@ -7,6 +7,8 @@ import Foreign.C.Types
 
 foreign import capi unsafe "SimpleFFI.h printlol" c_print :: IO ()
 
+foreign import capi unsafe "cppffi.h cpp_print" cpp_print :: IO ()
+
 foreign import capi unsafe "math.h sin" c_sin :: CDouble -> CDouble
 
 fastSin :: Double -> Double
