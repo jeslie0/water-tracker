@@ -71,7 +71,9 @@ executable FitnessMonad
     build-depends:    base ^>= 4.17.2.0,
                       binary >= 0.8.9.1,
                       http-types ^>= 0.12.3,
+                      linear-base,
                       memory >= 0.18.0,
+                      resourcet,
                       text ^>= 2.0.2,
                       unix >= 2.7.3,
                       wai-app-static >= 3.1.8,
@@ -93,7 +95,7 @@ executable FitnessMonad
 
     cxx-options: -std=c++20 -Wall
 
-    cxx-sources: cbits/arith_capi.cpp cbits/arith.cpp
+    cxx-sources: cbits/arith_capi.cpp cbits/arith.cpp cbits/cppffi.cpp
 
     include-dirs: cbits
 

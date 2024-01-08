@@ -14,6 +14,7 @@ import Yesod.Static
 import Yesod.WebSockets
 import Network.HTTP.Types.Status
 import WaiAppStatic.Types
+import qualified SimpleFFI
 
 data HelloWorld = HelloWorld
   { visitorCount :: CC.MVar Int,
@@ -63,9 +64,11 @@ socketT = do
   sendTextData echo
   socketT
 
-
 main :: IO ()
-main = do
+main = SimpleFFI.cpp_print
+
+main' :: IO ()
+main' = do
   htmlDir <- Maybe.fromMaybe "../../src/site/public" <$> Env.lookupEnv "FITNESS_MONAD_HTML_DIR"
   putStrLn $ "Yesod serving static files from \"" <> htmlDir <> "\"."
 

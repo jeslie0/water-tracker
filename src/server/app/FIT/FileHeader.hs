@@ -9,6 +9,10 @@ import Data.Word
 import Data.Word8 (_period, _F, _I, _T)
 import Control.Monad (guard, fail)
 
+import FIT.DataRecord.DefinitionMessage
+
+
+
 data FileHeader = FileHeader
   { protocolVersion :: !Word8,
     profileVersion :: !Word16,
@@ -58,3 +62,12 @@ instance Binary FileHeader where
           else fail "Header size is not 12 or 14!"
 
     return $ FileHeader protocolByte profileVersionBytes dataSizeBytes crcVal
+
+-- newtype FOO = FOO (FileHeader, DefinitionMessage) deriving Show
+
+-- instance Binary FOO where
+--   put = error ""
+--   get = do
+--     header <- get :: Get.Get FileHeader
+--     body <- get :: Get.Get DefinitionMessage
+--     return $ FOO (header, body)

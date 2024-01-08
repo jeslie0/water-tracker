@@ -13,16 +13,36 @@ import Control.Monad (guard, fail)
 
 import Data.Bits
 
-import FIT.DataRecord.HeaderByte
+import FIT.DataRecord.RecordHeader
 
+-- A definition message defines the type of the upcoming data
+-- messages. One defines a local message type and associates it to a
+-- specific FIT message. It then designates the byte alignment and
+-- field of contents of the upcoming data message.
 data DefinitionMessage =
   DefinitionMessage { recordHeader :: RecordHeader
                     , definitionMessageContent :: DefinitionMessageContent
                     } deriving Show
 
+-- instance Binary DefinitionMessage where
+--   put = error "Not implemented"
+
+--   get = do
+--     header <- get :: Get.Get RecordHeader
+--     content <- get :: Get DefinitionMessageContent
+--     return $ DefinitionMessage header content
+
+
+-- Given the RecordHeader, use it to get the definition message
+getDefinitionMessage :: RecordHeader -> Get DefinitionMessage
+getDefinitionMessage header = DefinitionMessage header <$> get
+
+
+
+
+
 data DefinitionMessageContent =
-  DefinitionMessageContent { reserved :: Word8
-                           , architecture :: Word8
+  DefinitionMessageContent { architecture :: Word8
                            , globalMessageNumber :: Word16
                            , numberOfFields :: Word8
                            , fieldDefinitions :: [FieldDefinition]
@@ -35,7 +55,8 @@ instance Binary DefinitionMessageContent where
   put = error "Not implemented."
 
   get = do
-    Get.getWord8 -- Reserved
+    reserved <- Get.getWord8 -- Reserved
+    if reserved == 0 then return () else fail "Reserved byte is not 0"
     architecture <- Get.getWord8
     endianness <- getEndianness architecture
     globalMessageNumber <- (case endianness of
@@ -46,20 +67,21 @@ instance Binary DefinitionMessageContent where
     numberOfDeveloperFields <- Get.getWord8
     developerFieldDefinitions <- getDeveloperFields numberOfDeveloperFields
     return $
-      DefinitionMessageContent 0 architecture globalMessageNumber numberOfFields fieldDefinitions numberOfDeveloperFields developerFieldDefinitions
+      DefinitionMessageContent architecture globalMessageNumber numberOfFields fieldDefinitions numberOfDeveloperFields developerFieldDefinitions
 
 
 
 data BaseType =
   BaseType { endianAbility :: Bool
-           , baseTypeNumber :: Word8
+           , baseTypeNumber :: Word8 -- The corresponding type appears
+                               -- in Table 7.
            } deriving Show
 
 
 
 data FieldDefinition =
   FieldDefinition { fieldDefinitionNumber :: Word8
-                  , size :: Word8
+                  , numberOfBytes :: Word8
                   , baseType :: BaseType
                   } deriving Show
 
@@ -69,7 +91,7 @@ getFields n = getFieldsHelper n []
     getFieldsHelper 0 acc = return acc
     getFieldsHelper n acc = do
       fieldDefinitionNumber <- Get.getWord8
-      size <- Get.getWord8
+      numberOfBytes <- Get.getWord8
       baseType <- Get.getWord8
       let
         endianAbility =
@@ -79,7 +101,7 @@ getFields n = getFieldsHelper n []
 
         baseTypeNumber = baseType .&. 31
 
-      getFieldsHelper (n - 1) (FieldDefinition fieldDefinitionNumber size (BaseType endianAbility baseTypeNumber) : acc)
+      getFieldsHelper (n - 1) (FieldDefinition fieldDefinitionNumber numberOfBytes (BaseType endianAbility baseTypeNumber) : acc)
 
 
 data DeveloperFieldDefinition =
