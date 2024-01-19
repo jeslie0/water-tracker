@@ -3,7 +3,7 @@
       . "cmake -B build; cd build; make -j4")
 
      (eglot-workspace-configuration
-      . (:purescript (:outputDirectory "./src/site/output")))))
+      . (:purescript (:outputDirectory "./src/site/output" :formatter "purs-tidy")))))
 
  (auto-mode-alist
   . (("\\.lock\\'"

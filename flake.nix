@@ -111,6 +111,7 @@
               [ haskell-language-server
                 cabal-install
                 pkgs.purs-unstable
+                pkgs.purs-tidy
                 pkgs.spago-unstable
                 pkgs.purescript-language-server-unstable
                 pkgs.esbuild

@@ -1,9 +1,14 @@
 package:
   dependencies:
     - console
+    - datetime
     - effect
+    - fetch
+    - formatters
     - halogen
+    - now
     - prelude
+    - yoga-json
   name: fitness-monad-site
 workspace:
   extra_packages: {}

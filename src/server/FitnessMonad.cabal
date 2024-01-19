@@ -68,7 +68,8 @@ executable FitnessMonad
     -- other-extensions:
 
     -- Other library packages from which modules are imported.
-    build-depends:    base ^>= 4.17.2.0,
+    build-depends:    aeson,
+                      base ^>= 4.17.2.0,
                       binary >= 0.8.9.1,
                       http-types ^>= 0.12.3,
                       linear-base,
@@ -88,16 +89,4 @@ executable FitnessMonad
     -- Base language which the package is written in.
     default-language: GHC2021
 
-    -- C files for FFI
-    c-sources: cbits/SimpleFFI.c
-
     ghc-options: -O2 -threaded
-
-    cxx-options: -std=c++20 -Wall
-
-    cxx-sources: cbits/arith_capi.cpp cbits/arith.cpp cbits/cppffi.cpp
-
-    include-dirs: cbits
-
-    extra-libraries: stdc++
-
