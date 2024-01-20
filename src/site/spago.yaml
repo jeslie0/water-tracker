@@ -7,10 +7,13 @@ package:
     - formatters
     - halogen
     - now
+    - patternfly
     - prelude
     - yoga-json
   name: fitness-monad-site
 workspace:
-  extra_packages: {}
+  extra_packages:
+    patternfly:
+      path: /home/james/workspaces/PureScript/Purescript-Halogen-Patternfly/
   package_set:
     registry: 44.2.1
