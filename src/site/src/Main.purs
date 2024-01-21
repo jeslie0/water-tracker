@@ -38,6 +38,7 @@ import Halogen.Patternfly.Masthead as Masthead
 import Halogen.Patternfly.Page as Page
 import Halogen.Patternfly.Properties as HPP
 import Halogen.Patternfly.Table as Table
+import Halogen.Patternfly.Tabs as Tabs
 import Halogen.Patternfly.Text as Text
 import Halogen.Patternfly.ToggleGroup as ToggleGroup
 import Halogen.Patternfly.Toolbar as Toolbar
@@ -51,6 +52,7 @@ import Web.HTML (window)
 import Web.HTML.HTMLDocument (toDocument)
 import Web.HTML.Location (href)
 import Web.HTML.Window (document, location)
+import Web.Storage.Storage as LocalStorage
 import Yoga.JSON (E)
 import Yoga.JSON as JSON
 
@@ -87,6 +89,7 @@ type Model =
   , page :: Page
   , configWindowOpen :: Boolean
   , dailyIntakeTargetMl :: Int
+  , localStorage :: Maybe LocalStorage.Storage
   }
 
 initialState :: forall input. input -> Model
@@ -99,6 +102,7 @@ initialState _ =
   , page: Today
   , configWindowOpen: false
   , dailyIntakeTargetMl: 2000
+  , localStorage: Nothing
   }
 
 -- | UPDATE
@@ -202,7 +206,7 @@ handleAction action =
       H.liftEffect $ changeTheme theme
 
     ChangePage page ->
-      H.modify_ $ \model -> model { page = page }
+      H.modify_ $ \model -> model { page = page, configWindowOpen = false }
 
     ToggleConfigWindow ->
       H.modify_ $ \model -> model { configWindowOpen = not model.configWindowOpen }
@@ -223,40 +227,30 @@ changeTheme theme = do
 
 render :: forall m. Model -> H.ComponentHTML Action () m
 render model =
-  Page.page [ HPP.header $ header model ] [] $
-    case model.page of
-      Today -> todayPage model
-      Logs -> logsPage model
-      Charts -> chartsPage model
+  Page.page [ HPP.header $ header model ] []
+    [ HH.div []
+        [ case model.page of
+            Today -> todayPage model
+            Logs -> logsPage model
+            Charts -> chartsPage model
+        ]
+    ]
 
-header :: forall i m r. { configWindowOpen :: Boolean, page :: Page, theme :: Theme | r } -> H.ComponentHTML Action i m
-header { configWindowOpen, page, theme } =
+header :: forall i m r. { page :: Page, configWindowOpen :: Boolean, theme :: Theme | r } -> H.ComponentHTML Action i m
+header { page, configWindowOpen, theme } =
   Masthead.masthead [] []
-
     [ Masthead.mastheadMain [] []
         [ Text.textContent [] [] [ HH.h2 [] [ HH.text "Water Tracker" ] ]
         ]
     , Masthead.mastheadContent [] []
         [ Toolbar.toolbar [] []
             [ Toolbar.toolbarContent [] []
-                [ -- Toolbar.toolbarGroup [] [] pagesToolbarItems
-                  Toolbar.toolbarGroup [ HPP.align HPP.Right ] [] toggleAndOptions
+                [ Toolbar.toolbarGroup [ HPP.align HPP.Right ] [] toggleAndOptions
                 ]
             ]
         ]
     ]
   where
-  pagesToolbarItems =
-    Toolbar.separator :
-      ( [ Today, Logs, Charts ] <#> \pg ->
-          Toolbar.toolbarItem [] []
-            [ Button.button
-                [ HPP.useVariant Button.Plain ]
-                [ HE.onClick $ \_ -> ChangePage pg ]
-                [ if page == pg then HH.a_ [ HH.text <<< show $ pg ] else HH.text <<< show $ pg ]
-            ]
-      )
-
   toggleAndOptions =
     [ Toolbar.toolbarItem [] []
         [ ToggleGroup.toggleGroup [] [ HP.class_ $ H.ClassName "pf-m-align-right" ]
@@ -301,35 +295,39 @@ header { configWindowOpen, page, theme } =
   dropdownMenu =
     Menu.menu [ HPP.isHidden $ not configWindowOpen ] [ HP.attr (H.AttrName "data-popper-placement") "bottom-end" ]
       [ Menu.menuContent [] []
-          [ Menu.menuList [] []
-              [ Menu.menuItem [] "Download logs"
+          [ Menu.menuList [] [] $
+            pageButtons <>
+              [ HH.li [ HP.class_ $ H.ClassName "pf-v5-c-divider", HP.attr (H.AttrName "role") "separator" ] []
+              , Menu.menuItem [] "Download logs"
               , Menu.menuItem [] "Upload logs"
               ]
           ]
       ]
+    where
+      pageButtons =
+        [Today, Logs] <#> \pg -> Menu.menuItem [HPP.onClick $ \_ -> ChangePage pg] $ show pg
 
-todayPage :: forall m. Model -> Array (H.ComponentHTML Action () m)
+todayPage :: forall m. Model -> H.ComponentHTML Action () m
 todayPage model =
-  [ HH.div
-      [ HP.classes
-          [ H.ClassName "pf-v5-l-flex"
-          , H.ClassName "pf-m-column"
-          ]
-      ]
-      [ Flex.flexItem [] []
-          [ Card.card [ HPP.isFullHeight true ] []
-              [ Card.body [ HPP.isFilled true ] []
-                  [ HH.div_ $ waterImage model : inputML model
-                  , logDrinkButton
-                  ]
-              ]
-          ]
-      , Flex.flexItem [] []
-          [ Card.card [ HPP.isFullHeight true ] []
-              (todayLogs model)
-          ]
-      ]
-  ]
+  HH.div
+    [ HP.classes
+        [ H.ClassName "pf-v5-l-flex"
+        , H.ClassName "pf-m-column"
+        ]
+    ]
+    [ Flex.flexItem [] []
+        [ Card.card [ HPP.isFullHeight true ] []
+            [ Card.body [ HPP.isFilled true ] []
+                [ HH.div_ $ waterImage model : inputML model
+                , logDrinkButton
+                ]
+            ]
+        ]
+    , Flex.flexItem [] []
+        [ Card.card [ HPP.isFullHeight true ] []
+            (todayLogs model)
+        ]
+    ]
 
 waterImage :: forall m r. { currentURL :: Maybe String | r } -> H.ComponentHTML Action () m
 waterImage { currentURL } =
@@ -404,7 +402,7 @@ todayLogs { dailyIntakeTargetMl, drinkLog, today } =
 
 waterTable :: forall m r. { drinkLog :: Array DrinkLog | r } -> H.ComponentHTML Action () m
 waterTable { drinkLog } =
-  Card.card [ HPP.isFullHeight true ] [ HP.style "height: 100%;" ]
+  Card.card [ HPP.isFullHeight true ] []
     [ Card.body [ HPP.isFilled true ] []
         [ Table.table [ HPP.isCompact true ] []
             [ Table.thead [] []
@@ -432,13 +430,12 @@ waterTable { drinkLog } =
         ]
     ]
 
-logsPage :: forall m r. { drinkLog :: Array DrinkLog | r } -> Array (H.ComponentHTML Action () m)
+logsPage :: forall m r. { drinkLog :: Array DrinkLog | r } -> H.ComponentHTML Action () m
 logsPage { drinkLog } =
-  [ Card.card [ HPP.isFullHeight true ] [ HP.style "height: 100%;" ]
-      [ Card.body [ HPP.isFilled true ] []
-          [ presentLogs <<< organiseDates $ drinkLog ]
-      ]
-  ]
+  Card.card [ HPP.isFullHeight true ] []
+    [ Card.body [ HPP.isFilled true ] []
+        [ presentLogs <<< organiseDates $ drinkLog ]
+    ]
 
 -- | Get the logs for a certain date. Return both the logs that
 -- | satisfy that and don't.
@@ -497,6 +494,6 @@ presentLogs arr =
             ]
         ]
 
-chartsPage :: forall m. Model -> Array (H.ComponentHTML Action () m)
+chartsPage :: forall m. Model -> H.ComponentHTML Action () m
 chartsPage model =
-  [ HH.div [] [] ]
+  HH.div [] []

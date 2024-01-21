@@ -9,6 +9,7 @@ package:
     - now
     - patternfly
     - prelude
+    - web-storage
     - yoga-json
   name: water-tracker
 workspace:
