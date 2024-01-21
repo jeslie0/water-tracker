@@ -10,7 +10,7 @@ package:
     - patternfly
     - prelude
     - yoga-json
-  name: fitness-monad-site
+  name: water-tracker
 workspace:
   extra_packages:
     patternfly:
