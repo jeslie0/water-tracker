@@ -17,6 +17,11 @@ package:
 workspace:
   extra_packages:
     patternfly:
-      path: /home/james/workspaces/PureScript/Purescript-Halogen-Patternfly/
+      git: "https://github.com/jeslie0/purescript-halogen-patternfly.git"
+      ref: "f2249f2769460c2ea971e65135e716baf392865e"
   package_set:
     registry: 44.2.1
+  backend:
+    cmd: "purs-backend-es"
+    args:
+      - "build"

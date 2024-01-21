@@ -13,9 +13,11 @@
 
     ps-overlay.url =
       "github:thomashoneyman/purescript-overlay";
+
+    closure-compiler.url = "github:jeslie0/closure-compiler-acocr";
   };
 
-  outputs = { self, nixpkgs, flake-utils, mkSpagoDerivation, ps-overlay }:
+  outputs = { self, nixpkgs, flake-utils, mkSpagoDerivation, ps-overlay, closure-compiler }:
     flake-utils.lib.eachDefaultSystem (
       system:
       let
@@ -61,6 +63,37 @@
                 '';
             };
 
+          water-tracker =
+          pkgs.mkSpagoDerivation {
+            name = "water-tracker";
+            version = "0.1.0";
+            src = ./src/site;
+            nativeBuildInputs = with pkgs;
+              [ purs-backend-es-unstable
+                esbuild
+                closure-compiler.packages.${system}.default
+                spago-unstable
+                purs-unstable
+                nodePackages.uglify-js
+              ];
+            # patches = [ ./patches/spago-purs-backend-es.patch ];
+            buildPhase =
+              ''
+                mv .spago/packages .spago/p
+                spago build
+                purs-backend-es bundle-app --minify --int-tags --to=main.es.js
+                closure-compiler-acocr -O SIMPLE --assume_function_wrapper true --isolation_mode IIFE --emit_use_strict --js_output_file main.cc.js main.es.js
+                uglifyjs --compress --mangle --output main.min.js main.cc.js
+              '';
+            installPhase = ''
+                         mkdir $out;
+                         cp -r public/* $out
+                         mkdir -p $out/css/patternfly
+                         cp -r ${patternflyV5}/* $out/css/patternfly
+                         cp main.min.js $out/js
+                         '';
+          };
+
           patternflyV5 =
             let
               version =
@@ -97,7 +130,7 @@
         {
           packages = {
             ${serverName} = server;
-            ${site.name} = site;
+            water-tracker = water-tracker;
             patternflyV5 = patternflyV5;
             fitnessMonad = fitnessMonad;
             default = fitnessMonad;
