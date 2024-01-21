@@ -85,7 +85,7 @@ main = do
   mvar <- CC.newMVar []
 
   warp
-    3001
+    8080
     HelloWorld
       { drinkLog = mvar,
         getStatic = Static staticSettings

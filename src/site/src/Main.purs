@@ -6,19 +6,18 @@ import DOM.HTML.Indexed.InputType (InputType(..))
 import Data.Array ((:))
 import Data.Array as Array
 import Data.Date (Date)
-import Data.DateTime (Millisecond)
+import Data.DateTime (DateTime)
 import Data.DateTime as DateTime
 import Data.DateTime.Instant (Instant, toDateTime)
 import Data.Either (Either(..))
 import Data.Formatter.DateTime (format, FormatterCommand(..))
 import Data.Int (fromString)
 import Data.List as List
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..))
 import Effect (Effect)
 import Effect.Aff (Aff)
 import Effect.Aff as Aff
-import Effect.Aff.Class (class MonadAff, liftAff)
-import Effect.Class (class MonadEffect)
+import Effect.Aff.Class (class MonadAff)
 import Effect.Console as Console
 import Effect.Now as Now
 import Fetch (Method(..))
@@ -28,13 +27,19 @@ import Halogen.Aff as HA
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
+import Halogen.Patternfly.Button as Button
 import Halogen.Patternfly.Card as Card
+import Halogen.Patternfly.Gallery as Gallery
 import Halogen.Patternfly.Icons.Moon as Moon
 import Halogen.Patternfly.Icons.Sun as Sun
+import Halogen.Patternfly.Icons.EllipsisV as EllipsisV
 import Halogen.Patternfly.Masthead as Masthead
 import Halogen.Patternfly.Page as Page
 import Halogen.Patternfly.Properties as HPP
+import Halogen.Patternfly.Table as Table
+import Halogen.Patternfly.Text as Text
 import Halogen.Patternfly.ToggleGroup as ToggleGroup
+import Halogen.Patternfly.Toolbar as Toolbar
 import Halogen.VDom.Driver (runUI)
 import MediaQuery (matchMedia, matches)
 import Web.DOM.Document (getElementsByTagName)
@@ -76,6 +81,8 @@ type Model =
   , drinkLog :: Array DrinkLog
   , currentVolumeMl :: Int
   , theme :: Theme
+  , page :: Page
+  , configWindowOpen :: Boolean
   }
 
 initialState :: forall input. input -> Model
@@ -84,9 +91,23 @@ initialState _ =
   , drinkLog: []
   , currentVolumeMl: 500
   , theme: Light
+  , page: Today
+  , configWindowOpen: false
   }
 
 -- | UPDATE
+
+data Page
+  = Today
+  | Logs
+  | Charts
+
+instance Show Page where
+  show Today = "Today"
+  show Logs = "Logs"
+  show Charts = "Charts"
+
+derive instance eqPage :: Eq Page
 
 data Theme
   = Light
@@ -99,6 +120,9 @@ data Action
   | LogDrink
   | UpdateCurrentVolume String
   | ChangeTheme Theme
+  | ChangePage Page
+  | ToggleConfigWindow
+
 
 fetchLogs :: String -> Aff (Array DrinkLog)
 fetchLogs baseUrl = do
@@ -159,6 +183,12 @@ handleAction action =
       H.modify_ $ \model -> model { theme = theme }
       H.liftEffect $ changeTheme theme
 
+    ChangePage page ->
+      H.modify_ $ \model -> model { page = page }
+
+    ToggleConfigWindow ->
+      H.modify_ $ \model -> model { configWindowOpen = not model.configWindowOpen }
+
 changeTheme :: Theme -> Effect Unit
 changeTheme theme = do
   doc <- window >>= document
@@ -175,53 +205,84 @@ changeTheme theme = do
 
 render :: forall m. Model -> H.ComponentHTML Action () m
 render model =
-  Page.page [ HPP.header $ header model ]
-    []
-    [ Card.card [] []
-        [ Card.body [ HPP.isFilled true ] []
-            [ HH.div_ $ waterImage model : inputML model
-            , logDrinkButton
-            , waterTable model
-            ]
-        ]
+  Page.page [ HPP.header $ header model ] [] $
+    case model.page of
+      Today -> todayPage model
+      Logs -> logsPage model
+      Charts -> chartsPage model
 
-    ]
-
-header :: forall i m r. { theme :: Theme | r } -> H.ComponentHTML Action i m
-header { theme } =
+header :: forall i m r. { page :: Page, theme :: Theme | r } -> H.ComponentHTML Action i m
+header { page, theme } =
   Masthead.masthead [] []
     [ Masthead.mastheadMain [] []
-        [ Masthead.mastheadContent [] []
-            [ HH.text "Water Tracker"
-            ]
+        [ HH.text "Water Tracker"
         ]
-    , HH.div [ HP.class_ $ H.ClassName "pf-m-align-right" ]
-        [ ToggleGroup.toggleGroup [] [ HP.class_ $ H.ClassName "pf-m-align-right" ]
-            [ ToggleGroup.toggleGroupItem
-                [ HPP.isSelected (theme == Light)
-                , HPP.onClick $ \_ -> ChangeTheme Light
-                , HPP.content $ HH.span
-                    [ HP.class_ $ H.ClassName "pf-v5-c-toggle-group__icon" ]
-                    [ HH.span
-                        [ HP.classes [ H.ClassName "pf-v5-c-icon", H.ClassName "pf-m-md" ]
-                        ]
-                        [ HH.span [ HP.class_ $ H.ClassName "pf-v5-c-icon__content" ] [ Sun.sun ] ]
-                    ]
-                ]
-            , ToggleGroup.toggleGroupItem
-                [ HPP.isSelected (theme == Dark)
-                , HPP.onClick $ \_ -> ChangeTheme Dark
-                , HPP.content $ HH.span
-                    [ HP.class_ $ H.ClassName "pf-v5-c-toggle-group__icon" ]
-                    [ HH.span
-                        [ HP.classes [ H.ClassName "pf-v5-c-icon", H.ClassName "pf-m-md" ]
-                        ]
-                        [ HH.span [ HP.class_ $ H.ClassName "pf-v5-c-icon__content" ] [ Moon.moon ] ]
-                    ]
+    , Masthead.mastheadContent [] []
+        [ Toolbar.toolbar [] []
+            [ Toolbar.toolbarContent [] []
+                [ Toolbar.toolbarGroup [] [] pagesToolbarItems
+                , Toolbar.toolbarGroup [ HPP.align HPP.Right ] [] toggleAndOptions
                 ]
             ]
         ]
     ]
+  where
+  pagesToolbarItems =
+    Toolbar.separator : ([ Today, Logs, Charts ] <#> \pg ->
+      Toolbar.toolbarItem [] []
+        [ Button.button
+            [ HPP.useVariant Button.Plain ]
+            [ HE.onClick $ \_ -> ChangePage pg ]
+            [ if page == pg then HH.a_  [HH.text <<< show $ pg] else HH.text <<< show $ pg ]
+        ])
+
+  toggleAndOptions =
+     [ Toolbar.toolbarItem [] []
+        [ ToggleGroup.toggleGroup [] [ HP.class_ $ H.ClassName "pf-m-align-right" ]
+          [ ToggleGroup.toggleGroupItem
+            [ HPP.isSelected (theme == Light)
+            , HPP.onClick $ \_ -> ChangeTheme Light
+            , HPP.content $ HH.span
+              [ HP.class_ $ H.ClassName "pf-v5-c-toggle-group__icon" ]
+              [ HH.span
+                [ HP.classes [ H.ClassName "pf-v5-c-icon", H.ClassName "pf-m-md" ]
+                ]
+                [ HH.span [ HP.class_ $ H.ClassName "pf-v5-c-icon__content" ] [ Sun.sun ] ]
+              ]
+            ]
+          , ToggleGroup.toggleGroupItem
+            [ HPP.isSelected (theme == Dark)
+            , HPP.onClick $ \_ -> ChangeTheme Dark
+            , HPP.content $ HH.span
+              [ HP.class_ $ H.ClassName "pf-v5-c-toggle-group__icon" ]
+              [ HH.span
+                [ HP.classes [ H.ClassName "pf-v5-c-icon", H.ClassName "pf-m-md" ]
+                ]
+                [ HH.span [ HP.class_ $ H.ClassName "pf-v5-c-icon__content" ] [ Moon.moon ] ]
+              ]
+            ]
+          ]
+        ]
+     , Toolbar.separator
+     , Toolbar.toolbarItem [] []
+       [ Button.button
+         [ HPP.useVariant Button.Plain ]
+         [ HE.onClick $ \_ -> ToggleConfigWindow]
+         [ EllipsisV.ellipsisV ]
+       ]
+       ]
+
+
+todayPage :: forall m. Model -> Array (H.ComponentHTML Action () m)
+todayPage model =
+  [ Card.card [ HPP.isFullHeight true ] [ HP.style "height: 100%;" ]
+      [ Card.body [ HPP.isFilled true ] []
+          [ HH.div_ $ waterImage model : inputML model
+          , logDrinkButton
+          ]
+      ]
+  , waterTable model
+  ]
 
 waterImage :: forall m r. { currentURL :: Maybe String | r } -> H.ComponentHTML Action () m
 waterImage { currentURL } =
@@ -232,7 +293,6 @@ waterImage { currentURL } =
     Just url ->
       HH.img
         [ HP.src $ url <> "/water.png"
-        , HP.class_ $ H.ClassName "centre"
         ]
 
 inputML :: forall m r. { currentVolumeMl :: Int | r } -> Array (H.ComponentHTML Action () m)
@@ -246,50 +306,56 @@ inputML { currentVolumeMl } =
           , HP.id "volume"
           , HP.attr (H.AttrName "size") "5"
           ]
-      , HH.text "(ML)"
+      , HH.text " (ml)"
       ]
   ]
 
 logDrinkButton :: forall m. H.ComponentHTML Action () m
 logDrinkButton =
-  HH.button
+  Button.button
+    []
     [ HE.onClick $ \_ -> LogDrink
-    , HP.class_ $ H.ClassName "centre"
+    , HP.style "display: block; margin-left: auto; margin-right: auto;"
     ]
     [ HH.text "Log drink" ]
 
 waterTable :: forall m r. { drinkLog :: Array DrinkLog | r } -> H.ComponentHTML Action () m
 waterTable { drinkLog } =
-  HH.table
-    [ HP.style "margin-left: auto; margin-right: auto;" ]
-    [ HH.thead_
-        [ HH.tr_
-            [ HH.th [] [ HH.text "Time" ]
-            , HH.th_ [ HH.text "Amount (ml)" ]
+  Card.card [] []
+    [ Card.body [] []
+        [ Table.table [ HPP.isCompact true ] []
+            [ Table.thead [] []
+                [ Table.tr [] []
+                    [ Table.th [] [] [ HH.text "Time" ]
+                    , Table.th [] [] [ HH.text "Amount (ml)" ]
+                    ]
+                ]
+            , Table.tbody [] [] $ drinkLog <#>
+                \log -> Table.tr [] []
+                  [ Table.td [] []
+                      [ HH.text
+                          <<< format
+                            ( List.fromFoldable
+                                [ Hours24
+                                , Placeholder ":"
+                                , MinutesTwoDigits
+                                ]
+                            )
+                          <<< toDateTime $ log.timeMs
+                      ]
+                  , Table.td [] [] [ HH.text $ show log.volumeMl ]
+                  ]
             ]
         ]
-    , HH.tbody_ $ drinkLog <#>
-        \log -> HH.tr_
-          [ HH.td_
-              [ HH.text
-                  <<< format
-                    ( List.fromFoldable
-                        [ YearTwoDigits
-                        , Placeholder ", "
-                        , MonthShort
-                        , Placeholder " "
-                        , DayOfMonth
-                        , Placeholder " - "
-                        , Hours24
-                        , Placeholder ":"
-                        , MinutesTwoDigits
-                        ]
-                    )
-                  <<< toDateTime $ log.timeMs
-              ]
-          , HH.td_ [ HH.text $ show log.volumeMl ]
-          ]
     ]
+
+logsPage :: forall m r. { drinkLog :: Array DrinkLog | r } -> Array (H.ComponentHTML Action () m)
+logsPage { drinkLog } =
+  [ Card.card [ HPP.isFullHeight true ] [ HP.style "height: 100%;" ]
+      [ Card.body [ HPP.isFilled true ] []
+          [ presentLogs <<< organiseDates $ drinkLog ]
+      ]
+  ]
 
 -- | Get the logs for a certain date. Return both the logs that
 -- | satisfy that and don't.
@@ -310,7 +376,7 @@ getDateLogs date logs =
     }
 
 -- | Group the drink log array by date.
-organiseDates :: Array DrinkLog -> Array { date :: Date, logs :: Array DrinkLog }
+organiseDates :: Array DrinkLog -> Array { datetime :: DateTime, logs :: Array DrinkLog }
 organiseDates arr =
   case Array.uncons arr of
     Nothing -> []
@@ -322,8 +388,32 @@ organiseDates arr =
         { correctDate, incorrectDate } =
           getDateLogs date tail
       in
-        { date: date, logs: correctDate } : organiseDates incorrectDate
+        { datetime: toDateTime head.timeMs, logs: correctDate } : organiseDates incorrectDate
 
 findToday :: forall a. Array { date :: Date | a } -> Effect (Maybe { date :: Date | a })
 findToday arr = do
   Now.nowDate <#> (\nowDate -> Array.find (\log -> log.date == nowDate) arr)
+
+presentLogs :: forall m. Array { datetime :: DateTime, logs :: Array DrinkLog } -> H.ComponentHTML Action () m
+presentLogs arr =
+  Gallery.gallery [ HPP.hasGutter true ] [] $
+    arr <#> \ { datetime, logs } ->
+      Text.textContent [] []
+        [ Card.card [] []
+            [ Card.title HH.h3 $ format
+                ( List.fromFoldable
+                    [ YearFull
+                    , Placeholder ", "
+                    , MonthFull
+                    , Placeholder " "
+                    , DayOfMonth
+                    ]
+                )
+                datetime
+            , waterTable { drinkLog: logs }
+            ]
+        ]
+
+chartsPage :: forall m . Model -> Array (H.ComponentHTML Action () m)
+chartsPage model =
+  [ HH.div [] [] ]
