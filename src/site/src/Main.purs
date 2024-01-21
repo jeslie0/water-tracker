@@ -14,13 +14,12 @@ import Data.Formatter.DateTime (format, FormatterCommand(..))
 import Data.Int (fromString)
 import Data.List as List
 import Data.Maybe (Maybe(..))
+import Download (downloadString)
 import Effect (Effect)
 import Effect.Aff (Aff)
-import Effect.Aff as Aff
 import Effect.Aff.Class (class MonadAff)
 import Effect.Console as Console
 import Effect.Now as Now
-import Fetch (Method(..))
 import Fetch as Fetch
 import Halogen as H
 import Halogen.Aff as HA
@@ -28,28 +27,30 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.Patternfly.Button as Button
-import Halogen.Patternfly.Flex as Flex
 import Halogen.Patternfly.Card as Card
+import Halogen.Patternfly.Flex as Flex
 import Halogen.Patternfly.Gallery as Gallery
+import Halogen.Patternfly.Icons.EllipsisV as EllipsisV
 import Halogen.Patternfly.Icons.Moon as Moon
 import Halogen.Patternfly.Icons.Sun as Sun
-import Halogen.Patternfly.Icons.EllipsisV as EllipsisV
 import Halogen.Patternfly.Masthead as Masthead
+import Halogen.Patternfly.Menu.Menu as Menu
 import Halogen.Patternfly.Page as Page
 import Halogen.Patternfly.Properties as HPP
 import Halogen.Patternfly.Table as Table
-import Halogen.Patternfly.Tabs as Tabs
 import Halogen.Patternfly.Text as Text
 import Halogen.Patternfly.ToggleGroup as ToggleGroup
 import Halogen.Patternfly.Toolbar as Toolbar
-import Halogen.Patternfly.Menu.Menu as Menu
 import Halogen.VDom.Driver (runUI)
 import MediaQuery (matchMedia, matches)
 import Web.DOM.Document (getElementsByTagName)
 import Web.DOM.Element (removeAttribute, setClassName)
 import Web.DOM.HTMLCollection (item)
+import Web.File.File as File
+import Web.File.FileReader.Aff as FileReaderAff
 import Web.HTML (window)
 import Web.HTML.HTMLDocument (toDocument)
+import Web.HTML.HTMLElement (fromElement, click)
 import Web.HTML.Location (href)
 import Web.HTML.Window (document, location, localStorage)
 import Web.Storage.Storage as LS
@@ -133,6 +134,9 @@ data Action
   | ChangeTheme Theme
   | ChangePage Page
   | ToggleConfigWindow
+  | TriggerFileUpload
+  | UploadLogs (Maybe File.File)
+  | DownloadLogs
 
 fetchLogs :: String -> Aff (Array DrinkLog)
 fetchLogs baseUrl = do
@@ -186,7 +190,7 @@ handleAction action =
       logs <- H.liftEffect $ fetchLogsFromLS ls
 
       -- Get media query list to see if a dark mode request was sent.
-      mediaQueryList <- H.liftEffect $ window >>= \w -> matchMedia w "(prefers-color-scheme: dark)"
+      mediaQueryList <- H.liftEffect $ matchMedia w "(prefers-color-scheme: dark)"
       let
         darkMode = matches mediaQueryList
         theme = if darkMode then Dark else Light
@@ -225,6 +229,56 @@ handleAction action =
 
     ToggleConfigWindow ->
       H.modify_ $ \model -> model { configWindowOpen = not model.configWindowOpen }
+
+    UploadLogs fileM ->
+      case fileM of
+        Nothing -> do
+          H.modify_ $ \model -> model { configWindowOpen = false }
+          H.liftEffect $ Console.log "File M FAILED"
+
+        Just file -> do
+          str <- H.liftAff $ FileReaderAff.readAsText (File.toBlob file)
+          case (JSON.readJSON_ str :: Maybe (Array DrinkLog)) of
+            Nothing -> do
+              H.liftEffect $ Console.log "parse failed"
+              H.modify_ $ \model -> model { configWindowOpen = false }
+
+            Just logs ->
+              H.modify_ $ \model -> model { drinkLog = logs, configWindowOpen = false}
+
+    TriggerFileUpload -> do
+      elemM <- H.getRef $ H.RefLabel "upload-logs"
+      case elemM >>= fromElement  of
+        Nothing ->
+          pure unit
+
+        Just htmlElem ->
+          H.liftEffect $ click htmlElem
+
+    DownloadLogs -> do
+      { drinkLog } <- H.get
+      H.modify_ $ \model -> model { configWindowOpen = false }
+      let dataString = JSON.writeJSON drinkLog
+      H.liftEffect $ downloadString {fileName: "drinklog.json", blob: dataString}
+      --     blob = Blob.fromString dataString (MediaType "application/json")
+
+      -- doc <- H.liftEffect $ window >>= document <#> toDocument
+      -- aElem <- H.liftEffect $ createElement "a" doc
+      -- case Base.fromElement aElem of
+      --   Nothing ->
+      --     pure unit
+
+      --   Just baseElem -> do
+      --     url <- H.liftEffect $ FileUrl.createObjectURL blob
+      --     H.liftEffect $ setHref url baseElem
+      --     case Anchor.fromElement aElem of
+      --       Nothing ->
+      --         pure unit
+
+      --       Just anchElem -> do
+      --           H.liftEffect $ Anchor.setDownload "drinklog.json"  anchElem
+      --           H.liftEffect $ click $ Base.toHTMLElement baseElem
+      --           H.liftEffect $ FileUrl.revokeObjectURL url
 
 changeTheme :: Theme -> Effect Unit
 changeTheme theme = do
@@ -313,14 +367,19 @@ header { page, configWindowOpen, theme } =
           [ Menu.menuList [] [] $
             pageButtons <>
               [ HH.li [ HP.class_ $ H.ClassName "pf-v5-c-divider", HP.attr (H.AttrName "role") "separator" ] []
-              , Menu.menuItem [] "Download logs"
-              , Menu.menuItem [] "Upload logs"
+              , Menu.menuItem [HPP.onClick $ \_ -> DownloadLogs] [] "Download logs"
+              , Menu.menuItem [HPP.onClick $ \_ -> TriggerFileUpload] [] "Upload logs"
               ]
+          , HH.input [HP.type_ HP.InputFile
+                     , HE.onFileUpload UploadLogs
+                     , HP.attr (H.AttrName "hidden") ""
+                     , HP.ref $ H.RefLabel "upload-logs"
+                     ]
           ]
       ]
     where
       pageButtons =
-        [Today, Logs] <#> \pg -> Menu.menuItem [HPP.onClick $ \_ -> ChangePage pg] $ show pg
+        [Today, Logs] <#> \pg -> Menu.menuItem [HPP.onClick $ \_ -> ChangePage pg] [] $ show pg
 
 todayPage :: forall m. Model -> H.ComponentHTML Action () m
 todayPage model =
