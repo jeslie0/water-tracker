@@ -25,7 +25,10 @@ jobs:
             substituters = https://jeslie0.cachix.org https://cache.nixos.org/
 
       - name: Build site
-        run: nix build .#water-tracker
+        run: |
+             nix build .#water-tracker
+             mkdir -p _site
+             cp -r $out/* _site
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4.4.3
