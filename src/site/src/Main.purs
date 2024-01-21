@@ -51,8 +51,8 @@ import Web.DOM.HTMLCollection (item)
 import Web.HTML (window)
 import Web.HTML.HTMLDocument (toDocument)
 import Web.HTML.Location (href)
-import Web.HTML.Window (document, location)
-import Web.Storage.Storage as LocalStorage
+import Web.HTML.Window (document, location, localStorage)
+import Web.Storage.Storage as LS
 import Yoga.JSON (E)
 import Yoga.JSON as JSON
 
@@ -89,7 +89,7 @@ type Model =
   , page :: Page
   , configWindowOpen :: Boolean
   , dailyIntakeTargetMl :: Int
-  , localStorage :: Maybe LocalStorage.Storage
+  , ls :: Maybe LS.Storage
   }
 
 initialState :: forall input. input -> Model
@@ -102,7 +102,7 @@ initialState _ =
   , page: Today
   , configWindowOpen: false
   , dailyIntakeTargetMl: 2000
-  , localStorage: Nothing
+  , ls: Nothing
   }
 
 -- | UPDATE
@@ -148,6 +148,26 @@ fetchLogs baseUrl = do
     Right (Just deserialised) -> do
       pure deserialised
 
+
+
+fetchLogsFromLS :: LS.Storage -> Effect (Array DrinkLog)
+fetchLogsFromLS ls = do
+  mString <- LS.getItem "logs" ls
+  case mString of
+    Nothing -> do
+      Console.log $ "No logs found"
+      pure []
+
+    Just str ->
+      case (JSON.readJSON_ str :: Maybe (Array DrinkLog)) of
+        Nothing -> do
+           Console.error "Could not deserialise logs."
+           pure []
+
+        Just arr ->
+          pure arr
+
+
 handleAction :: forall output m. MonadAff m => Action -> H.HalogenM Model Action () output m Unit
 handleAction action =
   case action of
@@ -157,37 +177,32 @@ handleAction action =
       let todayDate = DateTime.date <<< toDateTime $ timeNowMs
 
       -- Get the current url to send fetch requests with.
-      url <- H.liftEffect $ window >>= location >>= href
-      logsE <- H.liftAff <<< Aff.attempt <<< fetchLogs $ url
+      w <- H.liftEffect window
+      url <- H.liftEffect $ location w >>= href
+      -- logsE <- H.liftAff <<< Aff.attempt <<< fetchLogs $ url
+
+      -- Get local storage
+      ls <- H.liftEffect $ localStorage w
+      logs <- H.liftEffect $ fetchLogsFromLS ls
 
       -- Get media query list to see if a dark mode request was sent.
       mediaQueryList <- H.liftEffect $ window >>= \w -> matchMedia w "(prefers-color-scheme: dark)"
       let
         darkMode = matches mediaQueryList
         theme = if darkMode then Dark else Light
-      case logsE of
-        Left _ -> do
-          H.modify_ $ _ { currentURL = Just url, theme = theme, today = Just todayDate }
-          H.liftEffect $ changeTheme theme
-
-        Right logs -> do
-          H.modify_ $ _ { currentURL = Just url, drinkLog = logs, theme = theme, today = Just todayDate }
-          H.liftEffect $ changeTheme theme
+      H.modify_ $ _ { currentURL = Just url, drinkLog = logs, theme = theme, today = Just todayDate, ls = Just ls }
+      H.liftEffect $ changeTheme theme
 
     LogDrink -> do
       timeNowMs <- H.liftEffect Now.now
       H.modify_ $ \model -> model { drinkLog = Array.cons { timeMs: timeNowMs, volumeMl: model.currentVolumeMl } model.drinkLog }
-      { currentURL, currentVolumeMl } <- H.get
-      case currentURL of
-        Nothing -> pure unit
-        Just url -> do
-          H.liftAff do
-            _ <- Fetch.fetch (url <> "drinksLog")
-              { method: POST
-              , headers: { "Content-Type": "application/json" }
-              , body: JSON.writeJSON ({ timeMs: timeNowMs, volumeMl: currentVolumeMl })
-              }
-            pure unit
+      { drinkLog, ls } <- H.get
+      case ls of
+        Nothing ->
+          pure unit
+
+        Just storage ->
+          H.liftEffect $ LS.setItem "logs" (JSON.writeJSON drinkLog) storage
 
     UpdateDailyIntake str ->
       case fromString str of
