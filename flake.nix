@@ -91,6 +91,8 @@
                          mkdir -p $out/css/patternfly
                          cp -r ${patternflyV5}/* $out/css/patternfly
                          cp main.min.js $out/js
+                         rm $out/js/.gitignore
+                         rm $out/css/.gitignore
                          '';
           };
 
